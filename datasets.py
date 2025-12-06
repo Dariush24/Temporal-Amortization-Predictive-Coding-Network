@@ -112,18 +112,6 @@ def get_cnn_dataset(dataset, batch_size):
         test_data = list(iter(testloader))
     elif dataset == "coil20":
 
-        # data_dir = '/content/drive/MyDrive/coil-20-proc/coil-20-proc2' # Replace with your data path
-        # print("asgasgdashgas")
-
-        # Get a list of files
-        # file_list = os.listdir(data_dir)
-
-        # Sort the file list naturally
-        # naturally_sorted_file_list = natsorted(file_list)
-
-        # Usage:
-        # data_dir = '/content/drive/MyDrive/coil-20-proc/coil-20-proc2'
-
         data_dir = r"C:\Users\dariu\Desktop\Studium\Vorlesungen und Uebungsblaetter\10.Semester\Bachelorthesis\dataset\coil-20-proc\coil-20-proc"
 
         transform = transforms.Compose([
@@ -139,29 +127,17 @@ def get_cnn_dataset(dataset, batch_size):
         print("Image shape:", image.shape)  # e.g., torch.Size([3, 256, 256])
         print("Label:", label)
 
-        # dataset = datasets.ImageFolder(root=data_dir, transform=transform)
-
-        # Optional: split into train/test
-        # train_size = int(0.8 * len(dataset))
-        # test_size = len(dataset) - train_size
-
         torch.manual_seed(42)
         np.random.seed(42)
         random.seed(42)
 
         generator = torch.Generator().manual_seed(42)
 
-        # train_set, test_set = torch.utils.data.random_split(dataset, [train_size, test_size], generator=generator)
-        # train_set, test_set = torch.utils.data.random_split(dataset, [0.8, 0.2], generator=generator)
-        # train_set, val_set, test_set = torch.utils.data.random_split(dataset, [1, 0, 0], generator = generator)
-
-        transform = transforms.Compose([transforms.ToTensor()])
-        # dataset = datasets.ImageFolder(root="data/", transform=transform)
         dataset.samples.sort(key=lambda x: x[0])  # Sort by filename (optional)
 
         # Ordered split (no randomness)
         n = len(dataset)
-        # train_set = Subset(dataset, range(0, int(0.8 * n)))
+
         train_set = dataset
 
         # Ordered DataLoader
@@ -199,19 +175,9 @@ def get_cnn_dataset(dataset, batch_size):
             for img in buckets[label]:
                 train_data_sorted.append((img, label))
 
-        #train_data_wrapped = [(img, [label]) for img, label in train_data_sorted]
-
         train_data_tensor_labels = [[img, torch.tensor([label])] for img, label in train_data_sorted]
 
-
-        fixed_train_dat = []
         subset_list_test = []
-
-        #print(print(train_data_tensor_labels[0][0].shape))
-
-        #print(train_data_tensor_labels)
-
-
 
         first_sample = train_data_tensor_labels[143]  # This is a list: [tensor(image), tensor(label)]
 
@@ -227,13 +193,6 @@ def get_cnn_dataset(dataset, batch_size):
         image_np = image_tensor.numpy()
         if len(image_np.shape) == 3 and image_np.shape[0] == 1:  # Grayscale
             image_np = image_np.squeeze(0)  # Shape: [H, W]
-
-        # Display
-        plt.imshow(image_np, cmap='gray')
-        plt.title(f"Label: {first_sample[1]}")  # Show the label
-        plt.axis('off')
-        plt.show()
-
 
         # print ("list of subsets ",subset_list)
         print("Total files loaded by ImageFolder:", len(dataset))

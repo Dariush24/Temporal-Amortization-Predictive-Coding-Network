@@ -228,13 +228,6 @@ def get_cnn_dataset(dataset, batch_size):
         if len(image_np.shape) == 3 and image_np.shape[0] == 1:  # Grayscale
             image_np = image_np.squeeze(0)  # Shape: [H, W]
 
-        # Display
-        plt.imshow(image_np, cmap='gray')
-        plt.title(f"Label: {first_sample[1]}")  # Show the label
-        plt.axis('off')
-        plt.show()
-
-
         # print ("list of subsets ",subset_list)
         print("Total files loaded by ImageFolder:", len(dataset))
     else:
@@ -242,9 +235,6 @@ def get_cnn_dataset(dataset, batch_size):
 
     print("Setup data:")
     print("Train: ", len(train_data))
-    # print("Test: ", len(test_data))
-    # return train_data, val_data, test_data
-    # return subset_list_train, subset_list_test
     return train_data_tensor_labels, subset_list_test
 
 

@@ -86,24 +86,9 @@ class PCNet(object):
 
                 count_not_near_zero += self.count_nonzero_elements(true_dW, epsilon)
 
-                # count_not_near_zero += self.count_nonzero_elements(true_dW, epsilon)
-
-                """
-                for i in range(len(dW)):                 
-                    count_not_near_zero += torch.sum(dW[i].abs() > epsilon).item()
-                """
-
-                # print(self.count_updates)
-                """
-                if (self.layers[-1] == l):
-                    print(dW[-1])
-                    count_not_near_zero = torch.sum(dW[-1].abs() > epsilon).item()
-                    print("Number of values not near zero:", count_not_near_zero)
-                """
-
                 if print_weight_grads:
                     print("weight grads : ", i)
-                    print("dW: ", dW * 2)
+                    print("dW: ", true_dW * 2)
                     print("true diffs: ", true_dW * 2)
                     if self.numerical_check:
                         print("true weights ", true_weight_grad)
@@ -125,19 +110,12 @@ class PCNet(object):
                     savedir, logdir, old_savedir="", print_every=100, save_every=1):
         if old_savedir != "None":
             self.load_model(old_savedir)
-        pcn_accuracies = []
-        pcn_test_accuracies = []
-        losses = []
-        accs = []
-        weight_diffs_list = []
-        test_accs = []
+
         for epoch in range(n_epochs):
             losslist = []
             print("Epoch: ", epoch)
             for i, (inp, label) in enumerate(testset):
-                # if self.loss_fn != cross_entropy_loss:
-                # label = onehot(label).to(DEVICE)
-                # else:
+
                 labelsList.append(label)
                 self.inferFeatures(inp.to(DEVICE), label, features)
 
@@ -150,46 +128,8 @@ class PCNet(object):
                 # initialize mus with forward predictions
                 self.mus[i + 1] = l.forward(self.mus[i])
 
-            # print("these are the features: ", self.mus[-2])
-            # print("these are the output: ", self.mus[-1])
             features.append(self.mus[-2])
 
-    """
-    def infer(self, inp, label,  number, epoch, n_inference_steps=None):
-        self.n_inference_steps_train = n_inference_steps if n_inference_steps is not None else self.n_inference_steps_train
-        with torch.no_grad():
-          self.mus[0] = inp.clone()
-          self.outs[0] = inp.clone()
-          for i,l in enumerate(self.layers):
-            #initialize mus with forward predictions
-            self.mus[i+1] = l.forward(self.mus[i],self)
-            self.outs[i+1] = self.mus[i+1].clone()
-          self.mus[-1] = label.clone() #setup final label
-          self.prediction_errors[-1] = -self.loss_fn_deriv(self.outs[-1], self.mus[-1])#self.mus[-1] - self.outs[-1] #setup final prediction errors
-          self.predictions[-1] = self.prediction_errors[-1].clone()
-          _,K = self.outs[-1].shape
-          self.flop_count = self.flop_count + 2*K #correct
-          for n in range(self.n_inference_steps_train):
-          #reversed inference
-            for j in reversed(range(len(self.layers))):
-              if j != 0:
-                self.prediction_errors[j] = self.mus[j] - self.outs[j]
-                self.flop_count = self.flop_count + self.mus[j].numel()
-                self.predictions[j] = self.layers[j].backward(self.prediction_errors[j+1],self)
-                dx_l = self.prediction_errors[j] - self.predictions[j]
-                self.flop_count = self.flop_count + self.prediction_errors[j].numel()
-                self.flop_count = self.flop_count + (3*dx_l.numel()) #correct
-
-                self.mus[j] -= self.inference_learning_rate * (2*dx_l)
-          #update weights
-          weight_diffs = self.update_weights()
-          #get loss:
-          L = self.loss_fn(self.outs[-1],self.mus[-1]).item()#torch.sum(self.prediction_errors[-1]**2).item()
-          self.flop_count = self.flop_count + (3*self.outs[-1].numel()-1)
-          #get accuracy
-          acc = accuracy(self.no_grad_forward(inp),label)
-          return L,acc,weight_diffs
-    """
 
     def infer(self, inp, label, number, epoch, n_inference_steps=None):
         captureStateUpdates = []
@@ -333,54 +273,6 @@ class PCNet(object):
         val_accs = []
         test_accs = []
 
-        """
-        samples_per_class = 72
-
-        subset_list_train = []
-        subset_list_test = []
-
-        for class_id in range(20):
-            start = class_id * samples_per_class
-            end = start + samples_per_class
-
-            class_subset = dataset[start:end]
-            subset_list_train.append(class_subset)
-        """
-
-        """
-        num_tasks = 20
-        classes_per_task = 1
-        samples_per_class = 72
-        test_split_ratio = 0.1
-
-        subset_list_train = []
-        subset_list_test = []
-
-        for task_id in range(num_tasks):
-            task_train = []
-            task_test = []
-
-            for class_offset in range(classes_per_task):
-                class_id = task_id * classes_per_task + class_offset
-                class_start = class_id * samples_per_class
-                class_end = class_start + samples_per_class
-
-                # Get data for this class
-                class_data = dataset[class_start:class_end]
-
-                # Compute test/train split
-                # num_test = int(test_split_ratio * samples_per_class)
-                num_test = 8
-                class_test = class_data[:num_test]
-                class_train = class_data[num_test:]
-
-                task_train += class_train
-                task_test += class_test
-
-            subset_list_train.append(task_train)
-            subset_list_test.append(task_test)
-          """
-
         num_tasks = 20
         classes_per_task = 1
         samples_per_class = 72
@@ -413,55 +305,6 @@ class PCNet(object):
             subset_list_train.append(task_train)
             subset_list_test.append(task_test)
 
-        """
-        num_tasks = 20
-        classes_per_task = 1
-        samples_per_class = 72
-
-        num_test = round(samples_per_class * 0.10)  # ≈ 7
-        num_val = round(samples_per_class * 0.10)  # ≈ 7
-
-        subset_list_train = []
-        subset_list_test = []
-
-        for task_id in range(num_tasks):
-            task_train = []
-            task_test = []
-
-            for class_offset in range(classes_per_task):
-                class_id = task_id * classes_per_task + class_offset
-                class_start = class_id * samples_per_class
-                class_end = class_start + samples_per_class
-
-                # Get full class data
-                class_data = dataset[class_start:class_end]
-                all_indices = list(range(samples_per_class))
-
-                # Randomly choose validation indices
-                val_indices = random.sample(all_indices, num_val)
-                remaining_indices = list(set(all_indices) - set(val_indices))
-
-                # Randomly choose test indices from remaining
-                test_indices = random.sample(remaining_indices, num_test)
-                test_indices.sort()  # Keep test set ordered
-
-                # Remaining are for training (including the former val indices)
-                train_indices = list(set(all_indices) - set(test_indices))
-
-                # Sort train indices to preserve sequence
-                train_indices.sort()
-
-                # Assign samples
-                class_train = [class_data[i] for i in train_indices]
-                class_test = [class_data[i] for i in test_indices]
-
-                task_train += class_train
-                task_test += class_test
-
-            subset_list_train.append(task_train)
-            subset_list_test.append(task_test)        
-        """
-
         record_L2 = []
         record_avg_update_per_framePC = []
         for epoch in range(n_epochs):
@@ -471,7 +314,6 @@ class PCNet(object):
             for idx, layer in enumerate(self.layers):
                 if hasattr(layer, "weights"):
                     weights_before_update.append(layer.weights.clone())
-                    # print("these are the weights of the layer: ", layer.weights[0])
 
             losslist = []
 
@@ -489,8 +331,6 @@ class PCNet(object):
                     for idx, layer in enumerate(self.layers):
                         if hasattr(layer, "weights"):
                             weights_before_update_frame.append(layer.weights.clone())
-                            # print(f"Layer {idx} has weights.")
-                            # print("these are the weights of the layer: ", layer.weights[0])
 
                     if self.loss_fn != cross_entropy_loss:
                         label = onehot(label).to(DEVICE)
@@ -499,23 +339,6 @@ class PCNet(object):
                     L, acc, weight_diffs = self.infer(inp.to(DEVICE), label, i, epoch)
                     losslist.append(L)
 
-                    """
-                    for idx, layer in enumerate(self.layers):
-                      if hasattr(layer, "weights"):                    
-                        weights_after_update_frame.append(layer.weights.clone())
-
-                    for i, _ in enumerate(weights_before_update_frame):
-                      difference = weights_before_update_frame[i] - weights_after_update_frame[i]
-                      #print("this is the difference ", torch.norm(difference[0]))
-                      self.record_diffs_frame.append(difference)
-
-                    x_tensor_frame = torch.cat([d.flatten() for d in self.record_diffs_frame])
-
-                    record_L2_frame.append(torch.norm(x_tensor_frame, p = 2))
-                    #print(record_L2_frame)  # debug line
-
-                    self.record_diffs_frame.clear()
-                    """
                 self.saveL2frame(record_L2_frame, n_epochs)
                 self.L2Class1.append(record_L2_frame.copy())
 
@@ -526,9 +349,6 @@ class PCNet(object):
                 accs.append(mean_acc)
                 mean_loss = np.mean(np.array(losslist))
                 losses.append(mean_loss)
-
-                # mean_val_acc,_ = self.test_accuracy(valset)
-                # val_accs.append(mean_val_acc)
 
                 mean_test_acc, _ = self.test_accuracy(testset)
                 capture_epoch_acc.append(mean_test_acc)
@@ -576,7 +396,6 @@ class PCNet(object):
 
             self.record_diffs.clear()
 
-            # print(record_L2)
             print("FLOPs: ", self.flop_count)
 
         self.saveL2(record_L2, n_epochs)
@@ -629,9 +448,6 @@ class PCNet(object):
 
         shutil.copytree(logdir, savedir, dirs_exist_ok=True)
 
-        # subprocess.call(['rsync','--archive','--update','--compress','--progress',str(logdir) +"/",str(savedir)], shell = True)
-
-        # print("Rsynced files from: " + str(logdir) + "/ " + " to" + str(savedir))
         now = datetime.now()
         current_time = str(now.strftime("%H:%M:%S"))
         subprocess.call(['echo', 'saved at time: ' + str(current_time)], shell=True)
@@ -671,17 +487,7 @@ class Backprop_CNN(object):
         return self.e_ys[0]
 
     def update_weights(self, print_weight_grads=False, update_weight=False, sign_reverse=False):
-        # weights_before_update = []
-        # weights_after_update = []
-        # capture weights before update
-        """
-        for idx, layer in enumerate(self.layers):
-          if hasattr(layer, "weights"):
-            weights_before_update.append(layer.weights.clone())
-            #print(f"Layer {idx} has weights.")
-            #print("these are the weights of the layer: ", layer.weights[0])
-        """
-        # print("these are weights before update ", (weights_before_update[1][0]))
+
         count_not_near_zero = 0
 
         for (i, l) in enumerate(self.layers):
@@ -692,11 +498,6 @@ class Backprop_CNN(object):
 
             count_not_near_zero += self.count_nonzero_elements(dW, epsilon)
 
-            """
-            if torch.is_tensor(dW):
-                for i in range(len(dW)):                 
-                    count_not_near_zero += torch.sum(dW[i].abs() > epsilon).item()
-            """
             if print_weight_grads:
                 print("weight grads Backprop: ", i)
                 print("dW Backprop: ", dW * 2)
@@ -705,14 +506,6 @@ class Backprop_CNN(object):
             # print(count_not_near_zero)
 
         self.count_updates += count_not_near_zero
-
-        """
-        #capture weights after update
-        for idx, layer in enumerate(self.layers):
-          if hasattr(layer, "weights"):
-            weights_after_update.append(layer.weights.clone())
-        c = weights_before_update[1] - weights_after_update[1]
-        """
 
     def count_nonzero_elements(self, dW, epsilon):
         if torch.is_tensor(dW):
@@ -730,12 +523,6 @@ class Backprop_CNN(object):
         np.save(logdir + "/test_accs.npy", np.array(test_accs))
 
         shutil.copytree(logdir, savedir, dirs_exist_ok=True)
-
-        # subprocess.call(['rsync','--archive','--update','--compress','--progress',str(logdir) +"/",str(savedir)])
-        # print("Rsynced files from: " + str(logdir) + "/ " + " to" + str(savedir))
-        now = datetime.now()
-        # current_time = str(now.strftime("%H:%M:%S"))
-        # subprocess.call(['echo', 'saved at time: ' + str(current_time)], shell=True)
 
     def load_model(self, old_savedir):  # evtl self entfernen
         for (i, l) in enumerate(self.layers):
@@ -852,19 +639,7 @@ class Backprop_CNN(object):
                         self.flop_count = self.flop_count + (3 * out.numel() - 1)  # correct
 
                         losslist.append(loss)
-                        """
-                        for idx, layer in enumerate(self.layers):
-                          if hasattr(layer, "weights"):                    
-                            weights_after_update_frame.append(layer.weights.clone())
-                        for i, _ in enumerate(weights_before_update_frame):
-                          difference = weights_before_update_frame[i] - weights_after_update_frame[i]
-                          self.record_diffs_frame.append(difference)
 
-                        x_tensor_frame = torch.cat([d.flatten() for d in self.record_diffs_frame])
-
-                        record_L2_frame.append(torch.norm(x_tensor_frame, p = 2))
-                        self.record_diffs_frame.clear()
-                        """
                     self.saveL2frame(record_L2_frame, 1280)
                     self.L2Class1.append(record_L2_frame.copy())
                     # record_L2_frame.clear()
@@ -893,39 +668,13 @@ class Backprop_CNN(object):
                         # print("VALIDATION ACCURACY: ", mean_val_acc)
                         print("TEST ACCURACY: ", mean_test_acc)
                         print("SAVING MODEL")
-                        durationBP = end_time - start_time
-                        # print(args.network_type, " Duration: ", durationBP)
-                        # time = duration
-                    # self.save_model(logdir, savedir, losses, accs, test_accs)
 
-                record_L2_frame = []
-                # reset testset after one epoch
                 avg_update_frame = self.count_updates / 1280
                 print(avg_update_frame)
                 record_avg_update_per_frameBP.append(avg_update_frame)
                 self.count_updates = 0
                 testset = []
                 valset = []
-
-                """
-                for idx, layer in enumerate(self.layers):
-                  if hasattr(layer, "weights"):
-                    weights_after_update.append(layer.weights.clone())
-
-                for i, _ in enumerate(weights_before_update):
-                  difference = weights_before_update[i] - weights_after_update[i]
-                  #print("this is the difference ", torch.norm(difference[0]))
-                  self.record_diffs.append(difference)
-
-                x_tensor = torch.cat([d.flatten() for d in self.record_diffs])
-
-                record_L2.append(torch.norm(x_tensor, p = 2))
-
-                self.record_diffs.clear()
-                #print(record_L2)
-
-                #print(self.flop_count)    
-                """
 
             self.saveL2frameAVG(self.L2Class1, n_epochs)
 
@@ -939,16 +688,6 @@ class Backprop_CNN(object):
             os.makedirs('updateAVG', exist_ok=True)
             with open('updateAVG/record_avg_update_per_frameBP.pkl', 'wb') as f:
                 pickle.dump(record_avg_update_per_frameBP, f)
-
-            # plt.plot(range(1, n_epochs + 1), accs, 'g--', label='Backprop Train Accuracy')
-            # plt.plot(range(1, n_epochs + 1), test_accs, 'g-', label='Backprop Test Accuracy')
-            # plt.xlabel('Epoch')
-            # plt.ylabel('Accuracy')
-            # plt.title('Model Accuracy During Training')
-            # plt.legend()
-            # plt.grid(True)
-            # plt.savefig("pipeline_training_accuracy.png", dpi=300, bbox_inches='tight')
-            # plt.show()
 
     def saveL2frame(self, record, n_epochs):
         l2_norms = [val.cpu().item() for val in record]
@@ -981,16 +720,8 @@ class Backprop_CNN(object):
         if old_savedir != "None":
             self.load_model(old_savedir)
         with torch.no_grad():
-            bpn_accuracies = []
-            bpn_test_accuracies = []
-            accs = []
-            losses = []
-            test_accs = []
             for n in range(n_epochs):
-                # epoch_time = 0
-                start_time = time.time()
                 print("Epoch backprop: ", n)
-                losslist = []
                 for (i, (inp, label)) in enumerate(
                         testset):  # inp (single sample) mit seinem label, also sample einzeln
                     labelsList.append(label)
@@ -1133,68 +864,18 @@ if __name__ == '__main__':
             # l5 = FCLayer(256, 150, 64, args.learning_rate, relu, relu_deriv, device=DEVICE)
 
             # coil 20 layers
-            """
-            #OLD MODEL
-            l1 = ConvLayer(128, 1, 36, args.batch_size, 5, args.learning_rate, relu, relu_deriv, device=DEVICE)
-            l2 = MaxPool(2, device=DEVICE)
-            l3 = ConvLayer(62, 36, 69, args.batch_size, 5, args.learning_rate, relu, relu_deriv, device=DEVICE)
-            l4 = ProjectionLayer((args.batch_size, 69, 58, 58), 192, relu, relu_deriv, args.learning_rate,
-                                 device=DEVICE)
-            l5 = FCLayer(192, 128, args.batch_size, args.learning_rate, relu, relu_deriv, device=DEVICE)
-            """
-
             l1 = ConvLayer(128, 1, 124, args.batch_size, 5, args.learning_rate, relu, relu_deriv, device=DEVICE)
             l2 = MaxPool(2, device=DEVICE)
-            # l3 = ConvLayer (62, 124, 16, args.batch_size, 3, args.learning_rate, relu, relu_deriv, device=DEVICE)
-            l3 = ProjectionLayer((args.batch_size, 124, 62, 62), 200, relu, relu_deriv, args.learning_rate,
-                                 device=DEVICE)
-
+            l3 = ProjectionLayer((args.batch_size, 124, 62, 62), 200, relu, relu_deriv, args.learning_rate, device=DEVICE)
             l4 = FCLayer(200, 128, args.batch_size, args.learning_rate, relu, relu_deriv, device=DEVICE)
 
-            # l1 = ConvLayer(128, 1, 8, args.batch_size, 5, args.learning_rate, relu, relu_deriv, device=DEVICE)
-            # l2 = MaxPool(2, device=DEVICE)
-            # l4 = ProjectionLayer((args.batch_size, 8, 62, 62), 200, relu, relu_deriv, args.learning_rate, device=DEVICE)
-
-            # l1 = ConvLayer(128, 1, 5, args.batch_size, 5, args.learning_rate, relu, relu_deriv, device=DEVICE)
-            # l2 = MaxPool(2, device=DEVICE)
-            # l3 = ConvLayer(62, 5, 5, args.batch_size, 5, args.learning_rate, relu, relu_deriv, device=DEVICE)
-            # l4 = MaxPool(2, device=DEVICE)
-            # l5 = ConvLayer(58, 5, 56, args.batch_size, 4, args.learning_rate, relu, relu_deriv, device=DEVICE)
-            # l6 = MaxPool(2, device=DEVICE)
-            # l7 = ProjectionLayer((args.batch_size, 56, 55, 55), 256, relu, relu_deriv, args.learning_rate, device=DEVICE)
-            # l8 = FCLayer(256, 96, args.batch_size,args.learning_rate,relu,relu_deriv,device=DEVICE)
-            # l = FCLayer(128, 128, args.batch_size, args.learning_rate, relu, relu_deriv, device=DEVICE)
-
-            # cifar layers
-            # l1 = ConvLayer(32, 3, 6, 64, 5, args.learning_rate, relu, relu_deriv, device=DEVICE)
-            # l2 = MaxPool(2, device=DEVICE)
-            # l3 = ConvLayer(14, 6, 16, 64, 5, args.learning_rate, relu, relu_deriv, device=DEVICE)
-            # l4 = ProjectionLayer((64, 16, 10, 10), 200, relu, relu_deriv, args.learning_rate, device=DEVICE)
-            # l5 = FCLayer(200, 150, 64, args.learning_rate, relu, relu_deriv, device=DEVICE)
             if args.loss_fn == "crossentropy":
                 l6 = FCLayer(150, output_size, args.batch_size, args.learning_rate, softmax, linear_deriv,
                              device=DEVICE)
             else:
                 l5 = FCLayer(128, output_size, args.batch_size, args.learning_rate, linear, linear_deriv, device=DEVICE)
 
-                # l6 = FCLayer(128, output_size, args.batch_size, args.learning_rate, linear, linear_deriv, device=DEVICE)
-                # l6 = FCLayer(150, output_size, 64, args.learning_rate, linear, linear_deriv, device=DEVICE)
-                # layers = [l1, l2, l3, l4, l5, l6]
             layers = [l1, l2, l3, l4, l5]
-
-            # layers =[l1,l2,l,l3,l4,l5]
-
-            # layers =[l1,l2,l3,l4,l5,l6]
-            # l1 = ConvLayer(32,3,20,64,4,args.learning_rate,tanh,tanh_deriv,device=DEVICE)
-            # l2 = ConvLayer(29,20,50,64,5,args.learning_rate,tanh,tanh_deriv,device=DEVICE)
-            # l3 = ConvLayer(25,50,50,64,5,args.learning_rate,tanh,tanh_deriv,stride=2,padding=1,device=DEVICE)
-            # l4 = ConvLayer(12,50,5,64,3,args.learning_rate,tanh,tanh_deriv,stride=1,device=DEVICE)
-            # l5 = ProjectionLayer((64,5,10,10),200,sigmoid,sigmoid_deriv,args.learning_rate,device=DEVICE)
-            # l6 = FCLayer(200,100,64,args.learning_rate,linear,linear_deriv,device=DEVICE)
-            # l7 = FCLayer(100,50,64,args.learning_rate,linear,linear_deriv,device=DEVICE)
-            # l8 = FCLayer(50,output_size,64,args.learning_rate,linear,linear_deriv,device=DEVICE)
-            # layers =[l1,l2,l3,l4,l5,l6,l7,l8]
-            # Optuna objective function
 
             sequences = create_sequences(dataset, sequence_length=72)
 
@@ -1217,9 +898,6 @@ if __name__ == '__main__':
 
             PC_all_accuracies.append(PC_epoch_accuracies)
             PC_all_accuracies_test.append(PC_epoch_accuracies_test)
-            # net.train(dataset[0:-2],testset[0:-2],args.N_epochs,args.n_inference_steps,args.Coilsavedir,args.Coillogdir,"None",args.save_every,args.print_every)
-
-        # one_epoch_plot(capture_epoch_acc)
 
         BP_accuracies_array = np.array(BP_all_accuracies)  # Shape: (5, num_epochs)
         BP_accuracies_array_test = np.array(BP_all_accuracies_test)
@@ -1286,11 +964,6 @@ if __name__ == '__main__':
         plt.grid(True)
         plt.tight_layout()
         plt.savefig('average_accuracy.png', dpi=300, bbox_inches='tight')
-        # plt.show()
-
-        # showPlot(args.batch_size, args.n_inference_steps, args.learning_rate, args.inference_learning_rate, args.dataset, durationBP)
-
-
 
     elif (args.plot_type == "t-sne"):
         if args.savedir:  # Checks if string is not empty
@@ -1340,9 +1013,6 @@ if __name__ == '__main__':
                         args.n_inference_steps, args.savedir, args.logdir, "logs", args.save_every, args.print_every)
 
         tsne = TSNE(n_components=2)
-
-        # features = torch.cat(features).numpy()
-        # features = np.vstack(features)  # stacks into shape (N, feature_dim)
 
         features = torch.cat(features).numpy()  # ✅ ensures it's a NumPy array
 
